@@ -1,3 +1,4 @@
+import           Data.List
 import           System.Environment
 import           System.IO
 
@@ -29,17 +30,24 @@ getID str =
       col = getNumber ('L', 'R') $ drop 7 str
   in  (+) <$> ((* 8) <$> row) <*> col
 
-getIDs :: [String] -> [String]
-getIDs = map
-  (\str -> case getID str of
-    Just x  -> show x
-    Nothing -> "Error"
-  )
+findMissing :: [Maybe Int] -> Maybe Int
+findMissing []  = Nothing
+findMissing [x] = Nothing
+findMissing (x : y : ys) =
+  let diff = (-) <$> y <*> x
+  in  case diff of
+        Just 2 -> (succ) <$> x
+        _      -> findMissing (y : ys)
+
+showAnswer :: [String] -> String
+showAnswer lines = case (findMissing . sort . map getID) lines of
+  Just x  -> show x
+  Nothing -> "something went wrong"
 
 main = do
   args     <- getArgs
   inHandle <- openFile (args !! 0) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
-  putStrLn $ unlines $ getIDs inLines
+  putStrLn $ showAnswer inLines
 
