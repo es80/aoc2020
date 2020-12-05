@@ -29,15 +29,17 @@ getID str =
       col = getNumber ('L', 'R') $ drop 7 str
   in  (+) <$> ((* 8) <$> row) <*> col
 
-getMax :: [String] -> String
-getMax strs = case foldl1 max $ map getID strs of
-  Just x  -> show x
-  Nothing -> "Error"
+getIDs :: [String] -> [String]
+getIDs = map
+  (\str -> case getID str of
+    Just x  -> show x
+    Nothing -> "Error"
+  )
 
 main = do
   args     <- getArgs
   inHandle <- openFile (args !! 0) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
-  putStrLn $ getMax inLines
+  putStrLn $ unlines $ getIDs inLines
 
