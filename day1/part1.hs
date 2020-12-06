@@ -10,16 +10,15 @@ maybeFindProduct (x : xs) set = if IntSet.member (2020 - x) set
   else maybeFindProduct xs (IntSet.insert x set)
 
 findProduct :: [Int] -> String
-findProduct nums = case maybeFindProduct nums IntSet.empty of
-  Nothing -> "No solution found."
-  Just x  -> show x
+findProduct nums =
+  maybe "No solution found." show (maybeFindProduct nums IntSet.empty)
 
 parseInputNums :: [String] -> [Int]
-parseInputNums list = map (read :: String -> Int) list
+parseInputNums = map (read :: String -> Int)
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
   putStrLn $ findProduct $ parseInputNums inLines

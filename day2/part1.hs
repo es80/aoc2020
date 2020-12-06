@@ -17,11 +17,11 @@ countCharInString ch (c : s) | ch == c   = 1 + countCharInString ch s
 policyIsSatisfied :: Policy -> Bool
 policyIsSatisfied p =
   let count = countCharInString (character p) (password p)
-  in  count >= (minCount p) && count <= (maxCount p)
+  in  count >= minCount p && count <= maxCount p
 
 parseLineAsPolicy :: [String] -> Maybe Policy
-parseLineAsPolicy (num1 : num2 : ch : pwd : _) =
-  Just $ Policy (read num1 :: Int) (read num2 :: Int) (ch !! 0) pwd
+parseLineAsPolicy (num1 : num2 : chStr : pwd : _) =
+  Just $ Policy (read num1 :: Int) (read num2 :: Int) (head chStr) pwd
 parseLineAsPolicy _ = Nothing
 
 parseLineAsWords :: String -> [String]
@@ -41,9 +41,8 @@ count tally (x : xs) = case x of
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines     = lines contents
       parsedLines = parseLines inLines
   putStrLn $ count 0 parsedLines
-

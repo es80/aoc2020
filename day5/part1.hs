@@ -13,7 +13,7 @@ search len xs (c : cs) = case c of
 
 searcher :: String -> [Choice] -> [Int]
 searcher string choices =
-  let len = 2 ^ (length string) in search len [0 .. len - 1] choices
+  let len = 2 ^ length string in search len [0 .. len - 1] choices
 
 getNumber :: (Char, Char) -> String -> Maybe Int
 getNumber (left, right) string =
@@ -30,13 +30,11 @@ getID str =
   in  (+) <$> ((* 8) <$> row) <*> col
 
 getMax :: [String] -> String
-getMax strs = case foldl1 max $ map getID strs of
-  Just x  -> show x
-  Nothing -> "Error"
+getMax strs = maybe "Error" show (maximum $ map getID strs)
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
   putStrLn $ getMax inLines

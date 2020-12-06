@@ -21,10 +21,10 @@ splitAtFirst :: (a -> Bool) -> [a] -> ([a], [a])
 splitAtFirst p [] = ([], [])
 splitAtFirst p (x : xs) =
   let (first, second) = splitAtFirst p xs
-  in  if p x then ([], xs) else ((x : first), second)
+  in  if p x then ([], xs) else (x : first, second)
 
 getPassportStrings :: [String] -> [String]
-getPassportStrings lines = map (intercalate " ") $ splitAtAll (== "") lines
+getPassportStrings lines = map unwords $ splitAtAll (== "") lines
 
 splitIntoKeyValuePairs :: String -> Passport
 splitIntoKeyValuePairs string = map (splitAtFirst (== ':')) $ words string
@@ -58,9 +58,8 @@ validHeight string =
   let reg                = "^([0-9]{2,3})(in|cm)$"
       (_, _, _, matches) = string =~ reg :: (String, String, String, [String])
       numMatches         = length matches
-  in  numMatches
-        == 2
-        && (validHeightHelper (read $ matches !! 0 :: Int, matches !! 1))
+  in  numMatches == 2 && validHeightHelper
+        (read $ head matches :: Int, matches !! 1)
 
 validHairColour :: String -> Bool
 validHairColour string = string =~ "^#[0-9a-f]{6}$"
@@ -73,32 +72,32 @@ validPassportId string = string =~ "^[0-9]{9}$"
 
 validPair :: (Key, Value) -> Bool
 validPair (key, value) = case key of
-  "byr"     -> validYear (1920, 2002) value
-  "iyr"     -> validYear (2010, 2020) value
-  "eyr"     -> validYear (2020, 2030) value
-  "hgt"     -> validHeight value
-  "hcl"     -> validHairColour value
-  "ecl"     -> validEyeColour value
-  "pid"     -> validPassportId value
-  "cid"     -> True
-  otherwise -> False
+  "byr" -> validYear (1920, 2002) value
+  "iyr" -> validYear (2010, 2020) value
+  "eyr" -> validYear (2020, 2030) value
+  "hgt" -> validHeight value
+  "hcl" -> validHairColour value
+  "ecl" -> validEyeColour value
+  "pid" -> validPassportId value
+  "cid" -> True
+  _     -> False
 
 allValidPairs :: Passport -> Bool
-allValidPairs passport = and $ map validPair passport
+allValidPairs = all validPair
 
 getValidPassports :: [String] -> Int
 getValidPassports =
   length
     . filter validSet
     . map keysSet
-    . filter allValidPairs
+    . filter (all validPair)
     . map splitIntoKeyValuePairs
     . getPassportStrings
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
-  putStrLn $ show $ getValidPassports inLines
+  print $ getValidPassports inLines
 

@@ -15,15 +15,15 @@ xor b1 b2 | b1 == b2  = False
 
 policyIsSatisfied :: Policy -> Bool
 policyIsSatisfied p =
-  let idx1   = (index1 p) - 1
-      idx2   = (index2 p) - 1
+  let idx1   = index1 p - 1
+      idx2   = index2 p - 1
       found1 = (password p !! idx1) == character p
       found2 = (password p !! idx2) == character p
   in  xor found1 found2
 
 parseLineAsPolicy :: [String] -> Maybe Policy
-parseLineAsPolicy (num1 : num2 : ch : pwd : _) =
-  Just $ Policy (read num1 :: Int) (read num2 :: Int) (ch !! 0) pwd
+parseLineAsPolicy (num1 : num2 : chStr : pwd : _) =
+  Just $ Policy (read num1 :: Int) (read num2 :: Int) (head chStr) pwd
 parseLineAsPolicy _ = Nothing
 
 parseLineAsWords :: String -> [String]
@@ -43,9 +43,8 @@ count tally (x : xs) = case x of
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines     = lines contents
       parsedLines = parseLines inLines
   putStrLn $ count 0 parsedLines
-

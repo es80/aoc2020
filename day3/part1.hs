@@ -13,7 +13,7 @@ traversal index tally (line : lines) =
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
       tally   = traversal 0 0 inLines

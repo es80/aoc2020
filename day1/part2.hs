@@ -18,17 +18,14 @@ maybeFindTriple (x : xs) = case maybeFindProduct (2020 - x) xs IntSet.empty of
   Just product -> Just $ product * x
 
 findProduct :: [Int] -> String
-findProduct nums = case maybeFindTriple nums of
-  Nothing -> "No solution found."
-  Just x  -> show x
+findProduct nums = maybe "No solution found." show (maybeFindTriple nums)
 
 parseInputNums :: [String] -> [Int]
-parseInputNums list = map (read :: String -> Int) list
+parseInputNums = map (read :: String -> Int)
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
   putStrLn $ findProduct $ parseInputNums inLines
-

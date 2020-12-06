@@ -18,10 +18,10 @@ splitAtFirst :: (a -> Bool) -> [a] -> ([a], [a])
 splitAtFirst p [] = ([], [])
 splitAtFirst p (x : xs) =
   let (first, second) = splitAtFirst p xs
-  in  if p x then ([], xs) else ((x : first), second)
+  in  if p x then ([], xs) else (x : first, second)
 
 getPassportStrings :: [String] -> [String]
-getPassportStrings lines = map (intercalate " ") $ splitAtAll (== "") lines
+getPassportStrings lines = map unwords $ splitAtAll (== "") lines
 
 splitIntoKeyValuePairs :: String -> Passport
 splitIntoKeyValuePairs string = map (splitAtFirst (== ':')) $ words string
@@ -40,14 +40,12 @@ getValidPassports :: [String] -> Int
 getValidPassports =
   length
     . filter validSet
-    . map keysSet
-    . map splitIntoKeyValuePairs
+    . map (keysSet . splitIntoKeyValuePairs)
     . getPassportStrings
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
-  putStrLn $ show $ getValidPassports inLines
-
+  print $ getValidPassports inLines

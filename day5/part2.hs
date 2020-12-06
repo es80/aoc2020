@@ -14,7 +14,7 @@ search len xs (c : cs) = case c of
 
 searcher :: String -> [Choice] -> [Int]
 searcher string choices =
-  let len = 2 ^ (length string) in search len [0 .. len - 1] choices
+  let len = 2 ^ length string in search len [0 .. len - 1] choices
 
 getNumber :: (Char, Char) -> String -> Maybe Int
 getNumber (left, right) string =
@@ -36,17 +36,16 @@ findMissing [x] = Nothing
 findMissing (x : y : ys) =
   let diff = (-) <$> y <*> x
   in  case diff of
-        Just 2 -> (succ) <$> x
+        Just 2 -> succ <$> x
         _      -> findMissing (y : ys)
 
 showAnswer :: [String] -> String
-showAnswer lines = case (findMissing . sort . map getID) lines of
-  Just x  -> show x
-  Nothing -> "something went wrong"
+showAnswer lines =
+  maybe "something went wrong" show $ (findMissing . sort . map getID) lines
 
 main = do
   args     <- getArgs
-  inHandle <- openFile (args !! 0) ReadMode
+  inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let inLines = lines contents
   putStrLn $ showAnswer inLines
