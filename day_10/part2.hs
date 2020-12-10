@@ -34,8 +34,7 @@ tribonacci n = head (tribonaccis n)
     let ts@(x : y : z : ys) = tribonaccis (n - 1) in (x + y + z : ts)
 
 arrangements :: [Int] -> Int
-arrangements []       = 1
-arrangements (x : xs) = tribonacci (x + 2) * (arrangements xs)
+arrangements = foldr (\x -> (*) (tribonacci (x + 2))) 1
 
 inputToLengthsOfOnes :: [Int] -> [Int]
 inputToLengthsOfOnes nums = groupsOfOnes $ gaps $ sort $ 0 : nums
