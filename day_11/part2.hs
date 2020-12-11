@@ -7,9 +7,6 @@ type Row = Int
 type Col = Int
 type CharMatrix = Array (Int, Int) Char
 
-parseInput :: String -> [[Char]]
-parseInput fileContents = lines fileContents
-
 getBounds :: [[Char]] -> ((Int, Int), (Int, Int))
 getBounds rows =
   let colLength = maximum $ map length rows
@@ -50,7 +47,7 @@ getSeeable arr (r, c) dir = moveDir arr (r, c) (dr, dc)
 
 getAdjacents :: CharMatrix -> (Row, Col) -> [Char]
 getAdjacents arr (r, c)
-  | checkBounds arr (r, c) = catMaybes $ map
+  | checkBounds arr (r, c) = mapMaybe
     (getSeeable arr (r, c))
     ["up", "down", "left", "right", "d1", "d2", "d3", "d4"]
   | otherwise = []
@@ -58,7 +55,7 @@ getAdjacents arr (r, c)
 canOccupy :: CharMatrix -> (Row, Col) -> Bool
 canOccupy arr (r, c) =
   let adj = getAdjacents arr (r, c)
-  in  ((lookupChar arr (r, c)) == Just 'L') && not (null adj) && notElem '#' adj
+  in  (lookupChar arr (r, c) == Just 'L') && not (null adj) && notElem '#' adj
 
 occupies :: CharMatrix -> [(Row, Col)] -> [((Row, Col), Char)]
 occupies arr [] = []
@@ -69,9 +66,7 @@ occupies arr (idx : idxs) =
 becomesEmpty :: CharMatrix -> (Row, Col) -> Bool
 becomesEmpty arr (r, c) =
   let adj = getAdjacents arr (r, c)
-  in  ((lookupChar arr (r, c)) == Just '#')
-        && (length $ filter (== '#') adj)
-        >= 5
+  in  (lookupChar arr (r, c) == Just '#') && length (filter (== '#') adj) >= 5
 
 empties :: CharMatrix -> [(Row, Col)] -> [((Row, Col), Char)]
 empties arr [] = []
@@ -85,7 +80,7 @@ applyRules arr =
       occ    = occupies arr ix
       emp    = empties arr ix
       newArr = (arr // occ) // emp
-  in  ((not $ null occ) || (not $ null emp), newArr)
+  in  (not (null occ && null emp), newArr)
 
 applyAllRules :: CharMatrix -> CharMatrix
 applyAllRules arr =
@@ -103,5 +98,5 @@ main = do
   args     <- getArgs
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
-  print $ countSeats $ applyAllRules $ mk2DArray $ parseInput contents
+  print $ countSeats $ applyAllRules $ mk2DArray $ lines contents
 
