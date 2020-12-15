@@ -53,7 +53,7 @@ filterOnes = filter (\(offset, modulus) -> modulus /= 1)
 sortModuli :: [(Offset, Modulus)] -> [(Offset, Modulus)]
 sortModuli = sortBy (\(res1, mod1) (res2, mod2) -> compare mod2 mod1)
 
-mkSieves :: [(Offset, Modulus)] -> [[Offset] -> [Integer]]
+mkSieves :: [(Offset, Modulus)] -> [[Integer] -> [Integer]]
 mkSieves =
   map (\(offset, modulus) -> filter (\x -> mod (x + offset) modulus == 0))
 
