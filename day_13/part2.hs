@@ -1,9 +1,12 @@
 import           Control.Applicative     hiding ( many )
 import           Data.Char
+import           Data.List
 import           Data.Maybe
 import           System.Environment
 import           System.IO
 import           Text.ParserCombinators.ReadP
+
+-- Parsing --------------------------------------------------------------------
 
 parseInteger :: ReadP String
 parseInteger = many1 $ satisfy isDigit
@@ -36,59 +39,34 @@ parseFile fileContent =
         then catMaybes $ parseLine $ last pairLines
         else error "Failed to parse file"
 
+-- Solution -------------------------------------------------------------------
 
--- add the remainders to the list of nums parsed from file
-includeRemainders index []           = []
-includeRemainders index (1   : nums) = includeRemainders (index + 1) nums
-includeRemainders index (num : nums) = (num - index, num) : rest
-  where rest = includeRemainders (index + 1) nums
+type Offset = Integer
+type Modulus = Integer
 
--- Given r and r' find gcd and a minimum pair Bezout Coefficients 
-extendedEuclidean
-  :: (Integer, Integer, Integer)
-  -> (Integer, Integer, Integer)
-  -> (Integer, Integer, Integer)
-extendedEuclidean (r, s, t) (r', s', t')
-  | r' == 0   = (r, s, t)
-  | otherwise = extendedEuclidean (r', s', t') (r'', s'', t'')
- where
-  q   = r `div` r'
-  r'' = r - (q * r')
-  s'' = s - (q * s')
-  t'' = t - (q * t')
+findOffsets :: [Modulus] -> [(Offset, Modulus)]
+findOffsets = zip [0 ..]
 
--- If n1, n2 have gcd d then there are m1, m2 such that n1*m1 + n2*m2 = d
-bezoutCoeffs :: (Integer, Integer) -> (Integer, Integer)
-bezoutCoeffs (n1, n2) =
-  let (_, m1, m2) = extendedEuclidean (n1, 1, 0) (n2, 0, 1) in (m1, m2)
+filterOnes :: [(Offset, Modulus)] -> [(Offset, Modulus)]
+filterOnes = filter (\(offset, modulus) -> modulus /= 1)
 
-{-- To solve 
-   x === a1 mod n1 
-   x === a2 mod n2 
-   where n1,n2 coprime
-   find Bezout coeffs m1,m2 so that m1*n1 + m2*n2 = 1, then 
-   x = a1*m2*n2 + a2*m1*n1
---}
-solvePair :: (Integer, Integer) -> (Integer, Integer) -> (Integer, Integer)
-solvePair (a1, n1) (a2, n2) =
-  let (m1, m2) = bezoutCoeffs (n1, n2)
-  in  ((a1 * m2 * n2) + (a2 * m1 * n1), n1 * n2)
--- this returns a pair a', n' such that x === a' mod n' and we can use this to
--- solve the next pair as x === a' mod n' and x === a3 mod n3.
+sortModuli :: [(Offset, Modulus)] -> [(Offset, Modulus)]
+sortModuli = sortBy (\(res1, mod1) (res2, mod2) -> compare mod2 mod1)
 
-convert :: (Integer, Integer) -> (Integer, Integer)
-convert (a, b) | a >= 0 && a < b = (a, b)
-               | otherwise       = (a - ((a `div` b) * b), b)
+mkSieves :: [(Offset, Modulus)] -> [[Offset] -> [Integer]]
+mkSieves =
+  map (\(offset, modulus) -> filter (\x -> mod (x + offset) modulus == 0))
 
-apply :: [(Integer, Integer)] -> (Integer, Integer)
-apply = foldl1 solvePair
-
--- check gcd of list nums is 1
+applySieves :: [[Integer] -> [Integer]] -> [Integer] -> [Integer]
+applySieves [] nums = nums
+applySieves (sieve : sieves) nums =
+  let first : second : _ = sieve nums in applySieves sieves [first, second ..]
 
 main :: IO ()
 main = do
   args     <- getArgs
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
-  print $ fst $ convert $ apply $ includeRemainders 0 (parseFile contents)
+  let offsetsAndModuli = sortModuli . filterOnes . findOffsets . parseFile
+  print $ head $ applySieves (mkSieves $ offsetsAndModuli contents) [1 ..]
 
