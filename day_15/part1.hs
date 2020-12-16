@@ -1,7 +1,5 @@
 import           Data.IntMap                    ( IntMap )
 import qualified Data.IntMap                   as IntMap
-import           System.Environment
-import           System.IO
 
 input = [0, 20, 7, 16, 1, 18, 15] :: [Int]
 
