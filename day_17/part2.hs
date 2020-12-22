@@ -1,13 +1,11 @@
-import           Data.Array
 import           Data.Maybe
+import           Data.Map                       ( Map )
+import qualified Data.Map                      as Map
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 
-type Size = Int
-type Row = Int
-type Col = Int
-type Slice = Int
-type Fourth = Int
-type Location = (Row, Col, Slice, Fourth)
-type Grid = Array Location Char
+type Location = (Int, Int, Int, Int)
+type Grid = Map Location Char
 
 test = [".#.", "..#", "###"]
 input =
@@ -21,86 +19,71 @@ input =
   , "..#...##"
   ]
 
+rows :: [[Char]] -> [[(Int, Char)]]
+rows = map (zip [0 ..])
+
+cols :: [[(Int, Char)]] -> [(Int, [(Int, Char)])]
+cols = zip [0 ..]
+
+rowToKeyValues :: (Int, [(Int, Char)]) -> [(Location, Char)]
+rowToKeyValues (a, xs) = map (\(i, c) -> ((a, i, 0, 0), c)) xs
+
+mkStartMap :: [[Char]] -> Grid
+mkStartMap input =
+  let indexRows = rows input
+      indexCols = cols indexRows
+      keyValues = concatMap rowToKeyValues indexCols
+  in  Map.fromList (filter (\(k, v) -> v == '#') keyValues)
+
+adjacents :: Location -> [Location]
+adjacents (r, c, s, f) =
+  [ (r + i, c + j, s + k, f + l)
+  | i <- [-1 .. 1]
+  , j <- [-1 .. 1]
+  , k <- [-1 .. 1]
+  , l <- [-1 .. 1]
+  , not (i == 0 && j == 0 && k == 0 && l == 0)
+  ]
+
+getAdjacentHashes :: Grid -> Location -> Int
+getAdjacentHashes grid loc =
+  length (mapMaybe (`Map.lookup` grid) (adjacents loc))
+
+locationsToInactive :: Grid -> [Location]
+locationsToInactive grid =
+  let keys = Map.keys grid
+      numHashes loc = getAdjacentHashes grid loc
+  in  filter (\l -> numHashes l < 2 || numHashes l > 3) keys
+
+locationsToActive :: Grid -> [Location]
+locationsToActive grid =
+  let keys              = Map.keys grid
+      inactiveLocations = Set.toList (getInactiveKeys keys)
+      currentlyInactive = filter (`Map.notMember` grid) inactiveLocations
+      numHashes loc = getAdjacentHashes grid loc
+  in  filter (\l -> numHashes l == 3) currentlyInactive
+
+getInactiveKeys :: [Location] -> Set Location
+getInactiveKeys = foldr (Set.union . Set.fromList . adjacents) Set.empty
+
+singleCycle :: Grid -> Grid
+singleCycle grid =
+  let deactivate = locationsToInactive grid
+      activate   = locationsToActive grid
+      deleted    = foldr Map.delete grid deactivate
+      added      = foldr (`Map.insert` '#') deleted activate
+  in  added
+
+nCycles :: Int -> Grid -> Grid
+nCycles 0 grid = grid
+nCycles n grid = nCycles (n - 1) (singleCycle grid)
+
+numActive :: Grid -> Int
+numActive grid = length (Map.keys grid)
+
 cycles :: Int
 cycles = 6
 
-maxSize :: Size -> Size
-maxSize s = s + (2 * cycles)
-
-getInputArray :: [[Char]] -> (Grid, Int)
-getInputArray xs =
-  let dim       = maximum (map length xs)
-      bound     = div dim 2
-      hBound    = if mod dim 2 == 1 then bound else bound - 1
-      lowBound  = (,,,) (-bound) (-bound) 0 0
-      highBound = (,,,) hBound hBound 0 0
-  in  (listArray (lowBound, highBound) (concat xs), dim)
-
-getStartingArray :: [[Char]] -> Grid
-getStartingArray xs =
-  let
-    (inputArray, dim) = getInputArray xs
-    bound             = div (maxSize dim) 2
-    low               = (,,,) (-bound) (-bound) (-bound) (-bound)
-    high              = (,,,) bound bound bound bound
-    blankArray = listArray (low, high) (replicate ((2 * bound + 1) ^ 4) '.')
-  in
-    blankArray // assocs inputArray
-
-checkBounds :: Grid -> Location -> Bool
-checkBounds arr (r, c, s, f) =
-  let ((minR, minC, minS, minF), (maxR, maxC, maxS, maxF)) = bounds arr
-      checkMins = r >= minR && c >= minC && s >= minS && f >= minF
-      checkMaxs = r <= maxR && c <= maxC && s <= maxS && f <= maxF
-  in  checkMins && checkMaxs
-
-lookupChar :: Grid -> Location -> Maybe Char
-lookupChar arr loc | checkBounds arr loc = Just $ arr ! loc
-                   | otherwise           = Nothing
-
-getAdjacents :: Grid -> Location -> [Char]
-getAdjacents arr (r, c, s, f)
-  | checkBounds arr (r, c, s, f) = mapMaybe
-    (lookupChar arr)
-    [ (r + i, c + j, s + k, f + l)
-    | i <- [-1 .. 1]
-    , j <- [-1 .. 1]
-    , k <- [-1 .. 1]
-    , l <- [-1 .. 1]
-    , not (i == 0 && j == 0 && k == 0 && l == 0)
-    ]
-  | otherwise = []
-
-countHash :: [Char] -> Int
-countHash s = length $ filter (== '#') s
-
-changeFromActive :: Grid -> Location -> Char
-changeFromActive arr loc =
-  let hashes = countHash (getAdjacents arr loc)
-  in  if hashes == 2 || hashes == 3 then '#' else '.'
-
-changeFromInactive :: Grid -> Location -> Char
-changeFromInactive arr loc =
-  let hashes = countHash (getAdjacents arr loc)
-  in  if hashes == 3 then '#' else '.'
-
-action :: Char -> (Grid -> Location -> Char)
-action '#' = changeFromActive
-action '.' = changeFromInactive
-
-singleCycle :: Grid -> Grid
-singleCycle arr =
-  let entries = assocs arr
-      changed = map (\(location, char) -> (location, action char arr location))
-  in  arr // changed entries
-
-nCycles :: Int -> Grid -> Grid
-nCycles 0 arr = arr
-nCycles n arr = nCycles (n - 1) (singleCycle arr)
-
-numActive :: Grid -> Int
-numActive arr = length $ filter (== '#') $ elems arr
-
 main :: IO ()
-main = print $ numActive $ nCycles cycles $ getStartingArray input
+main = print $ numActive $ nCycles cycles $ mkStartMap input
 
