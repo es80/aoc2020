@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in {01..21}
+for i in {01..23}
 do
     echo
     echo "Day $i"

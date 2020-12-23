@@ -135,6 +135,6 @@ main = do
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let tileMap = mkMap $ parseFile contents
-  print $ findCorners (map (`numBordersMatch` tileMap) $ Map.keys tileMap)
+  --print $ findCorners (map (`numBordersMatch` tileMap) $ Map.keys tileMap)
   print $ solution contents
 
