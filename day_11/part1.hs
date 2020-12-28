@@ -95,3 +95,4 @@ main = do
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   print $ countSeated $ applyAllRules $ mk2DArray $ lines contents
+

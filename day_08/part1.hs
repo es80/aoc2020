@@ -92,3 +92,4 @@ main = do
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   print $ finalAccumulator contents
+

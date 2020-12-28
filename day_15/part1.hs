@@ -23,15 +23,3 @@ takeNTurns nums n
 main :: IO ()
 main = print $ snd $ takeNTurns input (2020 - 1)
 
-{--
-initIndices :: [Int] -> Int -> [Int]
-initIndices nums n = [length nums .. n]
-
-takeTurns :: [Int] -> Spoken -> Game -> ([Int], Spoken, Game)
-takeTurns []       s g = ([], s, g)
-takeTurns (x : xs) s g = let !(ga, sp) = takeTurn g x s in takeTurns xs sp ga
-
-playGame :: [Int] -> Int -> ([Int], Spoken, Game)
-playGame nums n = takeTurns (initIndices nums n) (last nums) (setupGame nums)
---}
-

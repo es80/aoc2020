@@ -1,121 +1,127 @@
 import           Control.Applicative     hiding ( many )
 import           Data.Char
-import           Data.List
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as Set
 import           System.Environment
 import           System.IO
 import           Text.ParserCombinators.ReadP
 
--- Parsing Rules --------------------------------------------------------------
+-- Parse Input File -----------------------------------------------------------
+
+type Message = String
+data Rule = Simple (Int, Char) | Combo (Int, [[Int]]) deriving Show
+
+parseAB :: ReadP Char
+parseAB = char 'a' <|> char 'b'
 
 parseInt :: ReadP Int
-parseInt = read <$> (many1 $ satisfy isDigit)
+parseInt = read <$> many1 (satisfy isDigit)
 
-parseDigits :: ReadP [Int]
-parseDigits = sepBy parseInt (char ' ')
+parseInts :: ReadP [Int]
+parseInts = sepBy parseInt (char ' ')
 
 parseGroups :: ReadP [[Int]]
-parseGroups = sepBy parseDigits (string " | ")
+parseGroups = sepBy parseInts (string " | ")
 
-parseComplexRule :: ReadP (Int, [[Int]])
-parseComplexRule = (,) <$> (parseInt <* string ": ") <*> (parseGroups <* eof)
+parseSimpleRule :: ReadP Rule
+parseSimpleRule =
+  Simple <$> ((,) <$> (parseInt <* string ": \"") <*> (parseAB <* char '"'))
 
-parseLine :: String -> Maybe (Int, [[Int]])
-parseLine s = case readP_to_S parseComplexRule s of
-  [(ext, "")] -> Just ext
-  otherwise   -> Nothing
+parseComplexRule :: ReadP Rule
+parseComplexRule =
+  Combo <$> ((,) <$> (parseInt <* string ": ") <*> parseGroups)
 
-parseLines :: String -> [(Int, [[Int]])]
-parseLines s = mapMaybe parseLine $ lines s
+parseMessage :: ReadP String
+parseMessage = many parseAB
 
-parseSimpleRule :: ReadP (Int, Char)
-parseSimpleRule = do
-  num <- parseInt <* string ": " <* char '"'
-  ch <- char 'a' <|> char 'b' <* char '"' <* eof
-  return (num, ch) 
-
-parseFile :: ReadP ((Int, Char), (Int, Char))
+parseFile :: ReadP ([Rule], [Message])
 parseFile = do
-  skipMany parseComplexRule
-  r1 <- parseSimpleRule
-  skipMany parseComplexRule
-  r2 <- parseSimpleRule
-  skipMany parseComplexRule
+  rules <- sepBy (parseSimpleRule <|> parseComplexRule) (char '\n')
+  char '\n'
+  char '\n'
+  messages <- sepBy parseMessage (char '\n')
+  char '\n'
   eof
-  return (r1, r2)
+  return (rules, messages)
 
-parseRulesFile :: String -> ((Int, Char), (Int, Char))
-parseRulesFile fileContent = case readP_to_S parseFile fileContent of
+extract :: String -> ([Rule], [Message])
+extract fileContent = case readP_to_S parseFile fileContent of
   [(extracted, "")] -> extracted
   _                 -> error "Parsing failed"
 
+-- Construct A Tree -----------------------------------------------------------
 
 data Tree a = LeafA | LeafB | Node [[Tree a]] deriving Show
-type Rules = [(Int, [[Int]])]
 type TreeMap a = Map Int (Tree a)
 
-start :: Map Int (Tree a)
-start = Map.insert 12 LeafA (Map.singleton 7 LeafB)
+mkTreeMap :: [Rule] -> TreeMap a -> TreeMap a
+mkTreeMap []       treeMap = treeMap
+mkTreeMap (r : rs) treeMap = case r of
+  Simple (num, 'a'  ) -> mkTreeMap rs (Map.insert num LeafA treeMap)
+  Simple (num, 'b'  ) -> mkTreeMap rs (Map.insert num LeafB treeMap)
+  Combo  (num, numss) -> case treeMapLookups2 numss treeMap of
+    Nothing    -> mkTreeMap (rs ++ [r]) treeMap
+    Just trees -> mkTreeMap rs (Map.insert num (Node trees) treeMap)
 
-mkTree :: Rules -> TreeMap a -> (Rules, TreeMap a)
-mkTree [] t = ([], t)
-mkTree (x : xs) t =
-  let (k, v) = x
-  in  case lookups2 v t of
-        Nothing -> mkTree (xs ++ [x]) t
-        Just ls -> mkTree (xs) (Map.insert k (Node ls) t)
+treeMapLookups :: [Int] -> TreeMap a -> Maybe [Tree a]
+treeMapLookups xs treeMap =
+  let listMaybes = map (`Map.lookup` treeMap) xs in sequence listMaybes
+-- sequence :: t (m a) -> m (t a)
+-- e.g. given a list of maybes produces a maybe list (just list if all members
+-- justs, nothing if any member is a nothing
 
-lookups :: [Int] -> TreeMap a -> Maybe [Tree a]
-lookups xs tm = let lm = map (\x -> Map.lookup x tm) xs in sequence lm
+treeMapLookups2 :: [[Int]] -> TreeMap a -> Maybe [[Tree a]]
+treeMapLookups2 xss treeMap =
+  let listMaybes = map (`treeMapLookups` treeMap) xss in sequence listMaybes
 
-lookups2 :: [[Int]] -> TreeMap a -> Maybe [[Tree a]]
-lookups2 xs tm = let lm = map (\x -> lookups x tm) xs in sequence lm
-
-getTree :: String -> Tree a
-getTree s =
-  let (r, t) = mkTree (parseLines s) start
-  in  case r of
-        [] -> fromJust (Map.lookup 0 t)
-        _  -> error "fail"
+-- Make A Parser --------------------------------------------------------------
 
 mkParser :: Tree a -> ReadP String
 mkParser LeafA    = string "a"
 mkParser LeafB    = string "b"
-mkParser (Node a) = let ps = map (map mkParser) a in list2ToP ps
+mkParser (Node a) = let ps = map (map mkParser) a in combinerOr ps
 
-listToP :: [ReadP String] -> ReadP String
-listToP [x] = x
-listToP (x : xs) =
-  let p = listToP xs
-  in  do
-        s  <- x
-        s2 <- p
-        return (s ++ s2)
+combinerOr :: [[ReadP String]] -> ReadP String
+combinerOr ps = choice (map combinerAnd ps)
+-- succeeds if one of the parsers in the list succeeds
+-- choice takes a list of parsers [p1, p2, p3 ..]
+-- and produces a parser p1 <|> p2 <|> p3 ...
+-- equivalent to foldr (<|>) pfail
 
-list2ToP :: [[ReadP String]] -> ReadP String
-list2ToP x = choice (map listToP x)
+combinerAnd :: [ReadP String] -> ReadP String
+combinerAnd [x     ] = x
+combinerAnd (x : xs) = (++) <$> x <*> combinerAnd xs
+-- succeeds if all parsers in the list succeed in sequence
 
-getParser :: String -> ReadP String
-getParser s =
-  let m = mkParser (getTree s)
-  in  do
-        s <- m
-        eof
-        return s
+parserRule8 :: TreeMap a -> ReadP String
+parserRule8 treeMap = concat <$> many1 (mkParser $ treeMap Map.! 42)
 
-counts :: String -> String -> [[(String, String)]]
-counts r s = let l = lines s in map (readP_to_S (getParser r)) l
+parserRule11 :: TreeMap a -> ReadP String
+parserRule11 treeMap = do
+  a <- many1 (mkParser $ treeMap Map.! 42)
+  b <- count (length a) (mkParser $ treeMap Map.! 31)
+  return (concat a ++ concat b)
+
+getParser :: [Rule] -> ReadP String
+getParser rs =
+  let treeMap = mkTreeMap rs Map.empty
+  in  (++) <$> parserRule8 treeMap <*> parserRule11 treeMap
+
+counts :: [Rule] -> [Message] -> Int
+counts rules messages =
+  let parser = getParser rules <* eof
+      parsed message = case readP_to_S parser message of
+        [(success, "")] -> 1
+        _               -> 0
+  in  sum (map parsed messages)
+
+-------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
   args     <- getArgs
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
-  rules    <- (openFile "rules" ReadMode) >>= hGetContents
-  print $ length (filter (/= []) (counts rules contents))
-  --print $ filter (/= []) (counts rules contents)
+  let (r, m) = extract contents
+  print $ uncurry counts (extract contents)
 

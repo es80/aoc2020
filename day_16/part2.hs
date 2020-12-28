@@ -1,6 +1,6 @@
 import           Data.Char
-import           Data.Maybe
 import           Data.List
+import           Data.Maybe
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           System.Environment

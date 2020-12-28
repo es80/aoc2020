@@ -1,6 +1,6 @@
+import           Data.List
 import           System.Environment
 import           System.IO
-import           Data.List
 
 gaps :: [Int] -> [Int]
 gaps []           = []

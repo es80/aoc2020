@@ -36,7 +36,7 @@ parseFile fileContent = case readP_to_S parseTiles fileContent of
 
 -------------------------------------------------------------------------------
 
-data Tile = Tile
+data TileEdges = TileEdges
   { top     :: [Char]
   , bottom  :: [Char]
   , left    :: [Char]
@@ -57,29 +57,29 @@ data TileBorderShares = TileBorderShares
   }
   deriving Show
 
-getTile :: [[Char]] -> Tile
-getTile strs = Tile { top     = head strs
-                    , bottom  = last strs
-                    , left    = getLeft
-                    , right   = getRight
-                    , topR    = reverse $ head strs
-                    , bottomR = reverse $ last strs
-                    , leftR   = reverse getLeft
-                    , rightR  = reverse getRight
-                    }
+mkTileEdges :: [[Char]] -> TileEdges
+mkTileEdges arr = TileEdges { top     = head arr
+                            , bottom  = last arr
+                            , left    = getLeft
+                            , right   = getRight
+                            , topR    = reverse $ head arr
+                            , bottomR = reverse $ last arr
+                            , leftR   = reverse getLeft
+                            , rightR  = reverse getRight
+                            }
  where
-  getLeft  = [ head (strs !! i) | i <- [0 .. 9] ]
-  getRight = [ (strs !! i) !! (dim - 1) | i <- [0 .. dim - 1] ]
+  getLeft  = [ head (arr !! i) | i <- [0 .. dim - 1] ]
+  getRight = [ (arr !! i) !! (dim - 1) | i <- [0 .. dim - 1] ]
 
-mkMap :: [(Int, [[Char]])] -> Map Int Tile
+mkMap :: [(Int, [[Char]])] -> Map Int TileEdges
 mkMap [] = Map.empty
 mkMap (x : xs) =
   let (key, arr) = x
       rest       = mkMap xs
-  in  Map.insert key (getTile arr) rest
+  in  Map.insert key (mkTileEdges arr) rest
 
-findMatch :: [Char] -> Int -> Tile -> Maybe Int
-findMatch xs index tile =
+findMatch :: [Char] -> (Int, TileEdges) -> Maybe Int
+findMatch xs (index, tile) =
   if xs
        `elem` [ top tile
               , bottom tile
@@ -93,14 +93,14 @@ findMatch xs index tile =
     then Just index
     else Nothing
 
-numBordersMatch :: Int -> Map Int Tile -> TileBorderShares
-numBordersMatch x tileMap =
-  let tile           = fromJust $ Map.lookup x tileMap
-      otherTiles     = Map.assocs (Map.delete x tileMap)
-      topsMatches    = mapMaybe (uncurry (findMatch (top tile))) otherTiles
-      bottomsMatches = mapMaybe (uncurry (findMatch (bottom tile))) otherTiles
-      leftsMatches   = mapMaybe (uncurry (findMatch (left tile))) otherTiles
-      rightsMatches  = mapMaybe (uncurry (findMatch (right tile))) otherTiles
+numBordersMatch :: Int -> Map Int TileEdges -> TileBorderShares
+numBordersMatch x tileEdges =
+  let tile           = fromJust $ Map.lookup x tileEdges
+      otherTiles     = Map.assocs (Map.delete x tileEdges)
+      topsMatches    = mapMaybe (findMatch (top tile)) otherTiles
+      bottomsMatches = mapMaybe (findMatch (bottom tile)) otherTiles
+      leftsMatches   = mapMaybe (findMatch (left tile)) otherTiles
+      rightsMatches  = mapMaybe (findMatch (right tile)) otherTiles
   in  TileBorderShares { tileIndex    = x
                        , sharesTop    = topsMatches
                        , sharesBottom = bottomsMatches
@@ -108,8 +108,8 @@ numBordersMatch x tileMap =
                        , sharesRight  = rightsMatches
                        }
 
-emptyLists :: TileBorderShares -> Int
-emptyLists t = length
+numEdgesNoShares :: TileBorderShares -> Int
+numEdgesNoShares t = length
   (filter
     (== True)
     [ null (sharesTop t)
@@ -120,7 +120,7 @@ emptyLists t = length
   )
 
 findCorners :: [TileBorderShares] -> [TileBorderShares]
-findCorners = filter (\t -> emptyLists t == 2)
+findCorners = filter (\t -> numEdgesNoShares t == 2)
 
 solution :: String -> Int
 solution fileContent =
@@ -135,6 +135,5 @@ main = do
   inHandle <- openFile (head args) ReadMode
   contents <- hGetContents inHandle
   let tileMap = mkMap $ parseFile contents
-  --print $ findCorners (map (`numBordersMatch` tileMap) $ Map.keys tileMap)
   print $ solution contents
 
